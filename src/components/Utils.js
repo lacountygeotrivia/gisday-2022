@@ -19,12 +19,15 @@ export const parseConfig = async () =>
   const json = await response.json();
   const args = parseArgs();
 
-  let runningConfig = json.filter(
-    (value)=>value.path === "proto-config"
-  ).shift();
+  let runningConfig = {
+    initCenter: [-40, 29],
+    homeZoom: 3,
+    minZoom: 2,
+    maxZoom: 16
+  }
 
   if (args.edition) {
-    const editionConfig = json.filter((value)=>value.path === args.edition).shift();
+    const editionConfig = await lookUpConfig(args.edition);
     runningConfig = {...runningConfig, ...editionConfig};
   }
 
@@ -35,6 +38,10 @@ export const parseConfig = async () =>
       ...runningConfig, 
       ...itemInfo
     };
+  }
+
+  if (!runningConfig.serviceURL || !runningConfig.serviceURL.trim().length) {
+    runningConfig = {...runningConfig, ...json}
   }
 
   const initCenter = 
@@ -65,6 +72,33 @@ export const parseConfig = async () =>
 
   return runningConfig;
 
+}
+
+const lookUpConfig = async(edition) => 
+{
+  const featureLayerRegistryURL = "https://services.arcgis.com/nzS0F0zdNLvs7nc8/arcgis/rest/services/survey123_aedff645769549a5bea20220e2da313f_results/FeatureServer/0"
+  const response = await fetch(
+    featureLayerRegistryURL+"/query?where=edition='"+edition+"'&outFields=*&returnGeometry=true&f=pjson"
+  );
+  const json = await response.json();
+  let config = null;
+  if (json.features.length) {
+    const attributes = json.features[0].attributes;
+    const itemInfo = await getItemInfo(attributes.item_id);
+    const imageURLs = await getImageURLs(featureLayerRegistryURL, [attributes.objectid]);
+    config = {
+      title: attributes.title,
+      description: attributes.subtitle,
+      serviceURL: itemInfo.serviceURL,
+      homeZoom: parseInt(attributes.home_zoom),
+      minZoom: parseInt(attributes.minimum_zoom),
+      maxZoom: parseInt(attributes.maximum_zoom),
+      initCenter: [json.features[0].geometry.x, json.features[0].geometry.y],
+      introImage: imageURLs.length ? imageURLs[0].imageURL : null,
+      sortKeys: attributes.sort_keys && attributes.sort_keys.split(",").map((value)=>parseInt(value))
+    }
+  }
+  return config;
 }
 
 export const fetchFeatures = async (serviceURL) => 
@@ -106,16 +140,14 @@ export const getItemInfo = async(itemID) =>
     const featureServiceItem = json.results.filter(
       (value)=>value.type==="Feature Service" && 
               value.access==="public" && 
-              value.name.includes("stakeholder")
+              (value.name.includes("stakeholder") || value.name.includes("results"))
     ).shift();
 
-    return surveyFormItem && featureServiceItem ?
-          {
-            title: surveyFormItem.title, 
-            description: surveyFormItem.description,
+    return {
+            title: (surveyFormItem && surveyFormItem.title) || "Your title here", 
+            description: (surveyFormItem && surveyFormItem.description) || "You're subtitle here too (once you add your Treasure Hunt to the registry).",
             serviceURL: featureServiceItem.url+"/0"
-          } : 
-          null;
+          };
 
 }
 

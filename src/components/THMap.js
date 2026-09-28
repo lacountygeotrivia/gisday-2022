@@ -13,13 +13,15 @@
 * limitations under the License.
 */
 
+import '@arcgis/core/assets/esri/css/main.css';
+
 import { useRef, useEffect } from "react";
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
 import Extent from "@arcgis/core/geometry/Extent";
 import Point from "@arcgis/core/geometry/Point";
 import esriConfig from "@arcgis/core/config";
-import { whenTrue } from "@arcgis/core/core/watchUtils";
+import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import Graphic from "@arcgis/core/Graphic";
 import pngMarker from "./marker.png";
 
@@ -160,7 +162,7 @@ export const THMap = ({
     useEffect(
         () => {
 
-            esriConfig.apiKey = "AAPKc281cec04c56424bb82093c8925ea337x_K4mBEA-vKPfea5-iSQuzoKoHc5eupD1JQwl-4R_a3AoGuNVdUfNdzbDEQn2jZ2"
+            esriConfig.apiKey = process.env.REACT_APP_ARCGIS_API_KEY;
             const view = new MapView(
                 {
                     map: new Map({ basemap: "arcgis-community"}), 
@@ -173,6 +175,14 @@ export const THMap = ({
                     }
                 }
             );
+
+            const style = document.createElement('style');
+            style.textContent = ".esri-popup {margin-bottom: 35px;}"+
+            ".esri-popup__footer {display: none}"+
+            ".esri-view-width-medium .esri-popup__main-container {width: auto;}"+
+            ".esri-view-orientation-landscape .esri-popup__main-container {width: auto;}"+
+            ".esri-view-width-less-than-medium .esri-popup__main-container {width: auto;}";
+            document.head.append(style);
 
             view.popup.visibleElements = {closeButton: false};
             view.popup.dockOptions.buttonEnabled = false;
@@ -223,13 +233,12 @@ export const THMap = ({
                     _updateCrosshairColor.current();
 
                     view.watch("center",()=>_updateCrosshairColor.current())
-                    whenTrue(
-                        view, 
-                        "stationary", 
-                        ()=>{
-                            _performCrossHairTest.current();
-                        }
-                    )
+
+                    reactiveUtils.when(
+                        () => view?.stationary === true,
+                        () => {_performCrossHairTest.current();}
+                    );            
+        
                 }
             );
 

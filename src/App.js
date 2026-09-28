@@ -14,7 +14,6 @@
 */
 
 import 'bootstrap/dist/css/bootstrap.min.css';
-import '@arcgis/core/assets/esri/css/main.css';
 import './components/viewfinder.css';
 import './components/BalloonHelp.css';
 import './App.css';
@@ -77,7 +76,23 @@ function App() {
                 y: feature.geometry.y
               }
             }
-          )
+          );
+
+          // if configuration includes sort keys, re-configure the records so that
+          // those items are first.
+          if (config.sortKeys) {
+            var keys = config.sortKeys.slice();
+            var sorted = [];
+            while (keys.length) {
+              const key = keys.shift();
+              const found = _records.current.find((record)=>record.objectid === key);
+              if (found) {
+                sorted.push(found);
+              }
+            }
+            _records.current = [...new Set([...sorted, ..._records.current])];
+          }
+
           const extentWidth = new Multipoint({
             points: _records.current.map((value)=>[value.x, value.y])
           }).extent.width;
@@ -178,7 +193,7 @@ function App() {
       config && 
       <>
 
-        <header className="border-bottom border-bottom-1 mb-2 d-flex justify-content-between align-items-center p-3">
+        <header className="border-bottom border-bottom-1 d-flex justify-content-between align-items-center p-3">
           <h1 className="fs-5 ms-2">Treasure Hunt: {config.title}</h1>
           <button className="btn btn-sm fw-bold btn-outline-secondary btn-light me-2" 
                 style={{borderColor: "navy"}}
@@ -255,7 +270,7 @@ function App() {
                     backgroundImage: `url(${selectedQuestion.imageURL})`,
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "top center",
-                    backgroundSize: "cover",
+                    backgroundSize: "contain",
                     width:"auto",
                     borderRadius: "0.25rem"
                   }}>
